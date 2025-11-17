@@ -1,0 +1,63 @@
+{
+  "name": "interview-system",
+  "version": "1.0.0",
+  "description": "PLDF - Browser-based interview system with YAML configuration",
+  "main": "index.html",
+  "scripts": {
+    "test": "mocha test/unit/**/*.test.js --require test/setup.js",
+    "test:watch": "npm run test -- --watch",
+    "test:coverage": "nyc npm run test",
+    "test:coverage:report": "nyc report --reporter=html --reporter=text",
+    "serve": "node server.js",
+    "test:debug": "concurrently \"npm run serve\" \"sleep 3 && npm run test:wdio:debug\" --kill-others --success first",
+    "test:wdio:debug": "wdio run ./wdio.debug.conf.js",
+    "test:debug:single": "concurrently \"npm run serve\" \"sleep 3 && npm run test:wdio:debug:single\" --kill-others --success first",
+    "test:wdio:debug:single": "wdio run ./wdio.debug.conf.js --spec test/integration/basic-ui.spec.js",
+    "test:integration": "concurrently \"npm run serve\" \"sleep 5 && npm run test:wdio\" --kill-others --success first",
+    "test:wdio": "wdio run ./wdio.conf.js",
+    "lint": "jshint js/**/*.js test/**/*.js"
+  },
+  "devDependencies": {
+    "@wdio/cli": "^8.46.0",
+    "@wdio/local-runner": "^8.46.0",
+    "@wdio/mocha-framework": "^8.46.0",
+    "@wdio/spec-reporter": "^8.43.0",
+    "chai": "^4.3.7",
+    "chai-http": "^4.4.0",
+    "concurrently": "^8.2.0",
+    "jsdom": "^22.1.0",
+    "jshint": "^2.13.6",
+    "mocha": "^10.2.0",
+    "nyc": "^15.1.0",
+    "sinon": "^15.2.0",
+    "webdriverio": "^8.46.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "js-yaml": "^4.1.0",
+    "lz-string": "^1.4.4",
+    "marked": "^4.0.10",
+    "mermaid": "^9.4.3",
+    "morgan": "^1.10.0",
+    "mustache": "^4.2.0",
+    "node-fetch": "^2.7.0"
+  },
+  "nyc": {
+    "include": [
+      "js/**/*.js"
+    ],
+    "exclude": [
+      "test/**",
+      "node_modules/**"
+    ],
+    "reporter": [
+      "text",
+      "html"
+    ],
+    "all": true
+  },
+  "mocha": {
+    "timeout": 10000,
+    "recursive": true
+  }
+}

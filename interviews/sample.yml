@@ -1,0 +1,96 @@
+metadata:
+  title: "Legal Document Generator"
+  description: "Generate customized legal documents"
+  version: "1.0"
+  author: "Your Organization"
+
+variables:
+  - name: user_name
+    type: text
+    description: "Full legal name"
+  - name: user_age
+    type: integer
+    description: "Age in years"
+  - name: is_adult
+    type: boolean
+    computed: "user_age >= 18"
+  - name: user_email
+    type: text
+    description: "E-Mail Address"
+
+questions:
+  - id: name_question
+    type: text
+    question: "What is your full legal name?"
+    variable: user_name
+    required: true
+    validation:
+      minLength: 2
+      maxLength: 100
+      pattern: "^[a-zA-Z\\s\\-\\']+$"
+      patternMessage: "Please enter only letters, spaces, hyphens, and apostrophes"
+
+  - id: age_question
+    type: integer
+    question: "What is your age?"
+    variable: user_age
+    required: true
+    validation:
+      min: 0
+      max: 150
+
+  - id: email_question
+    type: email
+    question: "What is your email address?"
+    variable: user_email
+    required: true
+    show_if: "user_age >= 18"
+
+  - id: agreement_question
+    type: yesno
+    question: "Do you agree to the terms and conditions?"
+    variable: agree_terms
+    required: true
+    show_if: "is_adult === true"
+
+  - id: contact_preference
+    type: radio
+    question: "How would you prefer to be contacted?"
+    variable: contact_method
+    show_if: "agree_terms === true"
+    options:
+      - value: email
+        label: "Email"
+      - value: phone
+        label: "Phone"
+      - value: mail
+        label: "Postal Mail"
+
+templates:
+  - name: agreement_document
+    format: markdown
+    content: |
+      # Legal Agreement
+
+      **Date:** {{current_date}}
+
+      ## Party Information
+
+      **Name:** {{user_name}}  
+      **Age:** {{user_age}}  
+      {{#user_email}}**Email:** {{user_email}}{{/user_email}}
+
+      ## Agreement Status
+
+      {{#agree_terms}}
+      ✓ The party has agreed to the terms and conditions.
+      
+      **Preferred Contact Method:** {{contact_method}}
+      {{/agree_terms}}
+      {{^agree_terms}}
+      ✗ The party has not agreed to the terms and conditions.
+      {{/agree_terms}}
+
+      ---
+      
+      *This document was generated on {{current_date}} at {{current_time}}*
