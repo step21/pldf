@@ -4,15 +4,14 @@ A lightweight, client-side interview/wizard system that generates documents from
 
 ## Features
 
-- 100% browser-based (no server required)
-- YAML/JSON interview definitions
+- No backend required
+- Declarative document format
 - Multiple question types (text, number, yes/no, dropdown, etc.)
 - Conditional logic and computed fields
 - Template-based document generation
 - Shareable URLs with compressed state
 - Decision flow visualization with Mermaid.js
 - Export to Markdown and HTML
-- Progressive Web App ready
 
 ## Quick Start
 
@@ -79,13 +78,6 @@ Templates use Mustache syntax for variables:
 `?interview=path/to/interview.yaml` - Load specific interview
 `?state=compressed_state` - Load saved state
 
-## Browser Support
-
-* Chrome/Edge 80+
-* Firefox 75+
-* Safari 13+
-* Mobile browsers supported
-
 ## License
 
-Some License
+GPL-3.0 License
