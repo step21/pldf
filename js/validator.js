@@ -17,7 +17,15 @@ class Validator {
     validate(question, value) {
         const validator = this.validators[question.type];
         if (!validator) {
-            return { valid: true };
+            return { valid: false, message: 'Unsupported question type' };
+        }
+        const empty = value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0);
+        if (empty) return question.required ? { valid: false, message: 'This field is required' } : { valid: true };
+        if (['text', 'email'].includes(question.type) && typeof value !== 'string') return { valid: false, message: 'Expected text' };
+        if (question.type === 'yesno' && typeof value !== 'boolean') return { valid: false, message: 'Please select Yes or No' };
+        if (['radio', 'dropdown', 'checkboxes'].includes(question.type)) {
+            const values = question.type === 'checkboxes' ? value : [value];
+            if (!Array.isArray(values) || values.some(v => !(question.options || []).some(o => o.value === v))) return { valid: false, message: 'Invalid selection' };
         }
 
         return validator.call(this, value, question);
@@ -57,8 +65,8 @@ class Validator {
             return { valid: false, message: 'This field is required' };
         }
 
-        const num = parseInt(value, 10);
-        if (isNaN(num)) {
+        const num = Number(value);
+        if (!Number.isFinite(num) || !Number.isInteger(num)) {
             return { valid: false, message: 'Please enter a valid number' };
         }
 
@@ -81,8 +89,8 @@ class Validator {
             return { valid: false, message: 'This field is required' };
         }
 
-        const num = parseFloat(value);
-        if (isNaN(num)) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) {
             return { valid: false, message: 'Please enter a valid number' };
         }
 
