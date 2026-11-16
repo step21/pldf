@@ -4,8 +4,8 @@
   "description": "PLDF - Browser-based interview system with YAML configuration",
   "main": "index.html",
   "scripts": {
-    "test": "mocha test/unit/**/*.test.js --require test/setup.js",
-    "test:watch": "npm run test -- --watch",
+    "test": "node --test test/unit/*.test.js",
+    "test:watch": "node --test --watch test/unit/*.test.js",
     "test:coverage": "nyc npm run test",
     "test:coverage:report": "nyc report --reporter=html --reporter=text",
     "serve": "node server.js",
@@ -15,7 +15,10 @@
     "test:wdio:debug:single": "wdio run ./wdio.debug.conf.js --spec test/integration/basic-ui.spec.js",
     "test:integration": "concurrently \"npm run serve\" \"sleep 5 && npm run test:wdio\" --kill-others --success first",
     "test:wdio": "wdio run ./wdio.conf.js",
-    "lint": "jshint js/**/*.js test/**/*.js"
+    "lint": "node --check js/app.js && node --check js/interview-engine.js && node --check js/state-manager.js && node --check js/validator.js && node --check js/template-processor.js && node --check js/definition-validator.js",
+    "vendor": "node scripts/vendor.js",
+    "preserve": "npm run vendor",
+    "pretest": "npm run vendor"
   },
   "devDependencies": {
     "@wdio/cli": "^8.46.0",
@@ -33,6 +36,7 @@
     "webdriverio": "^8.46.0"
   },
   "dependencies": {
+    "dompurify": "^3.4.18",
     "express": "^4.18.2",
     "js-yaml": "^4.1.0",
     "lz-string": "^1.4.4",
