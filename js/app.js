@@ -5,7 +5,7 @@ class InterviewApp {
         this.stateManager = new StateManager();
         this.templateProcessor = new TemplateProcessor();
         this.validator = new Validator();
-        this.visualizer = new Visualizer();
+
         
         this.elements = {
             questionArea: document.getElementById('question-area'),
@@ -35,7 +35,7 @@ class InterviewApp {
         
         // Check for saved state
         const urlState = this.stateManager.loadFromURL();
-        const savedState = urlState || this.stateManager.loadFromStorage();
+        const savedState = urlState;
         
         if (savedState) {
             this.engine.initialize(savedState);
@@ -51,7 +51,9 @@ class InterviewApp {
         const definitionUrl = params.get('interview') || 'interviews/sample.yml';
         
         try {
-            const response = await fetch(definitionUrl);
+            const url = new URL(definitionUrl, window.location.href);
+            if (url.origin !== window.location.origin) throw new Error('Interview must be same-origin');
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText} - Failed to fetch ${definitionUrl}`);
@@ -69,7 +71,7 @@ class InterviewApp {
                 throw new Error(`Invalid YAML structure: Missing questions array in ${definitionUrl}`);
             }
             
-            return definition;
+            return DefinitionValidator.validate(definition);
         } catch (error) {
             // Log detailed error information
             console.error('=== INTERVIEW LOAD FAILURE ===');
@@ -109,6 +111,8 @@ class InterviewApp {
         const question = this.engine.getCurrentQuestion();
         
         if (question) {
+            this.generatedDocument = null;
+            this.elements.documentPreview.style.display = 'none';
             this.renderQuestion(question);
             this.updateNavigation();
             this.updateProgress();
@@ -118,10 +122,11 @@ class InterviewApp {
     }
 
     renderQuestion(question) {
-        const currentValue = this.engine.state.answers[question.variable] || '';
+        const currentValue = this.engine.state.answers[question.variable] ?? '';
+        const escape = value => String(value).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
         
-        let html = `<div class="question" data-question-id="${question.id}">`;
-        html += `<label for="${question.variable}">${question.question}`;
+        let html = `<div class="question" data-question-id="${escape(question.id)}">`;
+        html += `<label for="${escape(question.variable)}">${escape(question.question)}`;
         if (question.required) {
             html += ' <span style="color: red;">*</span>';
         }
@@ -130,27 +135,27 @@ class InterviewApp {
         // Render input based on type
         switch (question.type) {
             case 'text':
-                html += `<input type="text" id="${question.variable}" value="${currentValue}" />`;
+                html += `<input type="text" id="${escape(question.variable)}" value="${escape(currentValue)}" />`;
                 break;
                 
             case 'email':    // does this type actually exist in docassemble?
-                html += `<input type="email" id="${question.variable}" value="${currentValue}" />`;
+                html += `<input type="email" id="${escape(question.variable)}" value="${escape(currentValue)}" />`;
                 break;
                 
             case 'integer':
             case 'number':
-                html += `<input type="number" id="${question.variable}" value="${currentValue}" />`;
+                html += `<input type="number" id="${escape(question.variable)}" value="${escape(currentValue)}" />`;
                 break;
                 
             case 'yesno':
                 html += `
                     <div class="radio-group">
                         <label>
-                            <input type="radio" name="${question.variable}" value="true" 
+                            <input type="radio" name="${escape(question.variable)}" value="true"
                                 ${currentValue === true ? 'checked' : ''} /> Yes
                         </label>
                         <label>
-                            <input type="radio" name="${question.variable}" value="false" 
+                            <input type="radio" name="${escape(question.variable)}" value="false"
                                 ${currentValue === false ? 'checked' : ''} /> No
                         </label>
                     </div>
@@ -158,11 +163,11 @@ class InterviewApp {
                 break;
                 
             case 'dropdown':
-                html += `<select id="${question.variable}">`;
+                html += `<select id="${escape(question.variable)}">`;
                 html += '<option value="">Select an option</option>';
                 question.options.forEach(option => {
                     const selected = currentValue === option.value ? 'selected' : '';
-                    html += `<option value="${option.value}" ${selected}>${option.label}</option>`;
+                    html += `<option value="${escape(option.value)}" ${selected}>${escape(option.label)}</option>`;
                 });
                 html += '</select>';
                 break;
@@ -173,8 +178,8 @@ class InterviewApp {
                     const checked = currentValue === option.value ? 'checked' : '';
                     html += `
                         <label>
-                            <input type="radio" name="${question.variable}" 
-                                value="${option.value}" ${checked} /> ${option.label}
+                            <input type="radio" name="${escape(question.variable)}"
+                                value="${escape(option.value)}" ${checked} /> ${escape(option.label)}
                         </label>
                     `;
                 });
@@ -188,8 +193,8 @@ class InterviewApp {
                     const checked = checkedValues.includes(option.value) ? 'checked' : '';
                     html += `
                         <label>
-                            <input type="checkbox" name="${question.variable}" 
-                                value="${option.value}" ${checked} /> ${option.label}
+                            <input type="checkbox" name="${escape(question.variable)}"
+                                value="${escape(option.value)}" ${checked} /> ${escape(option.label)}
                         </label>
                     `;
                 });
@@ -198,9 +203,7 @@ class InterviewApp {
         }
         
         // Add validation error message area
-        if (!this.currentValidation.valid) {
-            html += `<div class="error">${this.currentValidation.message}</div>`;
-        }
+        html += `<div class="error" role="alert">${this.currentValidation.valid ? '' : escape(this.currentValidation.message)}</div>`;
         
         html += '</div>';
         
@@ -257,21 +260,21 @@ class InterviewApp {
                 return document.getElementById(question.variable).value;
                 
             case 'integer':
-                return parseInt(document.getElementById(question.variable).value, 10);
+                return document.getElementById(question.variable).value === '' ? '' : Number(document.getElementById(question.variable).value);
                 
             case 'number':
-                return parseFloat(document.getElementById(question.variable).value);
+                return document.getElementById(question.variable).value === '' ? '' : Number(document.getElementById(question.variable).value);
                 
             case 'yesno':
             case 'radio':
-                const checked = document.querySelector(`input[name="${question.variable}"]:checked`);
+                const checked = document.querySelector(`input[name="${CSS.escape(question.variable)}"]:checked`);
                 if (question.type === 'yesno') {
                     return checked ? (checked.value === 'true') : undefined;
                 }
                 return checked ? checked.value : undefined;
                 
             case 'checkboxes':
-                const checkboxes = document.querySelectorAll(`input[name="${question.variable}"]:checked`);
+                const checkboxes = document.querySelectorAll(`input[name="${CSS.escape(question.variable)}"]:checked`);
                 return Array.from(checkboxes).map(cb => cb.value);
                 
             default:
@@ -326,6 +329,7 @@ class InterviewApp {
     updateNavigation() {
         if (!this.engine) return;
         this.elements.prevBtn.disabled = this.engine.state.visitedQuestions.length === 0;
+        this.elements.nextBtn.disabled = this.engine.state.completed;
         this.elements.nextBtn.textContent = this.engine.state.completed ? 'Finish' : 'Next';
     }
 
@@ -369,8 +373,9 @@ class InterviewApp {
 
     async renderCompletion() {
         this.elements.questionArea.innerHTML = '<h2>Interview Complete!</h2>';
-        this.elements.visualizationContainer.style.display = 'block';
-        await this.visualizer.renderDiagram('mermaid-diagram', this.engine.definition, this.engine.state);
+        this.updateNavigation();
+        this.updateProgress();
+        const generation = this.generation = (this.generation || 0) + 1;
         
         const template = this.engine.definition.templates?.[0];
         if (template) {
@@ -380,6 +385,7 @@ class InterviewApp {
                 template.content
             );
             
+            if (generation !== this.generation || !this.engine.state.completed) return;
             this.elements.documentPreview.style.display = 'block';
             this.elements.previewContent.innerHTML = result.html;
             
@@ -408,6 +414,7 @@ class InterviewApp {
     copyShareURL() {
         if (!this.engine) return;
         
+        if (!confirm('This link contains all your answers. Anyone with the link can read them. Copy it?')) return;
         const url = this.stateManager.generateShareURL(this.engine.getState());
         
         navigator.clipboard.writeText(url).then(() => {
@@ -424,6 +431,8 @@ class InterviewApp {
                 this.engine.reset();
             }
             this.stateManager.resetState();
+            this.generatedDocument = null;
+            this.generation = (this.generation || 0) + 1;
             this.currentValidation = { valid: true };
             this.elements.visualizationContainer.style.display = 'none';
             this.elements.documentPreview.style.display = 'none';

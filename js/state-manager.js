@@ -28,7 +28,7 @@ class StateManager {
 
     // Clear stored state
     clearStorage() {
-        localStorage.removeItem(this.storageKey);
+        try { localStorage.removeItem(this.storageKey); } catch (_) { /* Storage may be disabled. */ }
     }
 
     // Compress state for URL
@@ -48,6 +48,9 @@ class StateManager {
         try {
             const json = LZString.decompressFromEncodedURIComponent(compressed);
             const minimal = JSON.parse(json);
+            if (!minimal || typeof minimal.a !== 'object' || minimal.a === null || Array.isArray(minimal.a) ||
+                !Number.isSafeInteger(minimal.c) || minimal.c < 0 || !Array.isArray(minimal.v) ||
+                minimal.v.some(i => !Number.isSafeInteger(i) || i < 0)) return null;
             
             return {
                 answers: minimal.a || {},
@@ -64,13 +67,14 @@ class StateManager {
     generateShareURL(state) {
         const compressed = this.compressState(state);
         const url = new URL(window.location.href);
-        url.searchParams.set('state', compressed);
+        url.searchParams.delete('state');
+        url.hash = new URLSearchParams({ state: compressed }).toString();
         return url.toString();
     }
 
     // Load state from URL
     loadFromURL() {
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(window.location.hash.slice(1));
         const compressed = params.get('state');
         
         if (compressed) {
@@ -80,11 +84,9 @@ class StateManager {
         return null;
     }
 
-    // Save state to both storage and URL
-    saveState(state) {
-        this.saveToStorage(state);
-        const url = this.generateShareURL(state);
-        window.history.replaceState(state, '', url);
+    // Default is memory-only: navigation must not persist answers.
+    saveState() {
+        return false;
     }
 
     // Reset all state
@@ -92,6 +94,7 @@ class StateManager {
         this.clearStorage();
         const url = new URL(window.location.href);
         url.searchParams.delete('state');
+        url.hash = '';
         window.history.replaceState(null, '', url.toString());
     }
 }

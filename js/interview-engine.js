@@ -11,9 +11,7 @@ class InterviewEngine {
         this.observers = [];
         
         // Debug configuration - set to true to enable detailed logging
-        this.DEBUG_MODE = typeof window !== 'undefined' && 
-                         (window.location?.search?.includes('debug=true') || 
-                          (typeof localStorage !== 'undefined' && localStorage.getItem('interview_debug') === 'true'));
+        this.DEBUG_MODE = false;
         
         this.debugLog('InterviewEngine initialized', {
             totalQuestions: definition?.questions?.length || 0,
@@ -55,7 +53,16 @@ class InterviewEngine {
         });
         
         if (savedState) {
-            this.state = { ...this.state, ...savedState };
+            const answers = Object.create(null);
+            for (const q of this.definition.questions) {
+                if (Object.hasOwn(savedState.answers || {}, q.variable)) answers[q.variable] = savedState.answers[q.variable];
+            }
+            this.state.answers = answers;
+            // Resume at the beginning so imported answers must pass validation again.
+            this.state.currentQuestionIndex = 0;
+            this.state.visitedQuestions = [];
+            this.state.completed = false;
+            this.updateComputedFields();
         }
         this.notifyObservers();
     }
@@ -90,6 +97,8 @@ class InterviewEngine {
                     questionText: question.question,
                     variable: question.variable
                 });
+                this.state.currentQuestionIndex = questionIndex;
+                this.state.completed = false;
                 return question;
             }
             questionIndex++;
@@ -97,6 +106,7 @@ class InterviewEngine {
 
         // No more questions
         this.debugLog('🏁 Interview completed - no more questions');
+        this.state.currentQuestionIndex = questions.length;
         this.state.completed = true;
         return null;
     }
@@ -142,7 +152,7 @@ class InterviewEngine {
         if (trimmed.match(/^['"](.*)['"]$/)) {
             return trimmed.slice(1, -1);
         }
-        if (!isNaN(trimmed)) {
+        if (trimmed !== '' && !isNaN(trimmed)) {
             return Number(trimmed);
         }
         return trimmed;
@@ -155,7 +165,7 @@ class InterviewEngine {
             returnBoolean: options.returnBoolean
         });
 
-        const matches = expression.match(/(\w+)\s*(===|!==|>=|<=|==|!=|>|<|\+|-|\*|\/)\s*(.+)/);
+        const matches = expression.match(/^\s*(\w+)\s*(===|!==|>=|<=|==|!=|>|<|\+|-|\*|\/)\s*(.+?)\s*$/);
         if (!matches) {
             this.debugLog('Could not parse expression', {
                 expression: expression,
@@ -251,6 +261,18 @@ class InterviewEngine {
         });
         
         this.updateComputedFields();
+        // Drop answers whose questions became hidden after an upstream edit.
+        for (let pass = 0; pass < this.definition.questions.length; pass++) {
+            let changed = false;
+            for (const q of this.definition.questions) {
+                if (!this.shouldShowQuestion(q) && Object.hasOwn(this.state.answers, q.variable)) {
+                    delete this.state.answers[q.variable];
+                    changed = true;
+                }
+            }
+            if (!changed) break;
+            this.updateComputedFields();
+        }
         this.notifyObservers();
     }
 
