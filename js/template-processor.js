@@ -4,6 +4,7 @@ class TemplateProcessor {
         this.marked = (typeof window !== 'undefined' && window.marked) || global.marked;
         this.mustache = (typeof window !== 'undefined' && window.Mustache) || global.Mustache;
         
+        this.purifier = globalThis.DOMPurify || (typeof window !== 'undefined' && window.DOMPurify);
         // Configure marked options if available
         if (this.marked && this.marked.setOptions) {
             this.marked.setOptions({
@@ -16,7 +17,11 @@ class TemplateProcessor {
     // Process template with data
     processTemplate(template, data) {
         const rendered = this.mustache.render(template, data);
-        const html = this.marked.parse(rendered);
+        if (!this.purifier) throw new Error('HTML sanitizer unavailable');
+        const html = this.purifier.sanitize(this.marked.parse(rendered), {
+            ALLOWED_TAGS: ['p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+            ALLOWED_ATTR: []
+        });
         
         return {
             markdown: rendered,
@@ -66,7 +71,7 @@ class TemplateProcessor {
         const now = new Date();        
         const questions = definition.questions.map(q => ({
             question: q.question,
-            answer: answers[q.variable] || 'Not answered'
+            answer: answers[q.variable] ?? 'Not answered'
         }));
 
         return {
@@ -81,7 +86,7 @@ class TemplateProcessor {
     // Generate document
     async generateDocument(definition, answers, templatePath = null) {
         const template = templatePath 
-            ? await this.loadTemplate(templatePath)
+            ? templatePath
             : this.getDefaultTemplate();
             
         const data = this.prepareTemplateData(definition, answers);
